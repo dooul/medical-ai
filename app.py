@@ -7,14 +7,20 @@ st.set_page_config(page_title="AI 의료상담 & 문진 연계 프로토타입",
 st.title("🩺 의료 접근성 개선을 위한 AI 건강상담 시스템")
 st.caption("공공 의료 가이드라인 기반 1차 스크리닝 및 사전 문진표 발행 서비스")
 
-# 사이드바: API 키 입력
+# Streamlit Secrets에서 API 키 자동 로드 (없을 경우 수동 입력창 노출)
+if "GEMINI_API_KEY" in st.secrets:
+    api_key = st.secrets["GEMINI_API_KEY"]
+else:
+    with st.sidebar:
+        st.header("⚙️ 환경 설정")
+        api_key = st.text_input("Google Gemini API 키를 입력하세요", type="password")
+
+# 사이드바 법적 고지 안내
 with st.sidebar:
-    st.header("⚙️ 환경 설정")
-    api_key = st.text_input("Google Gemini API 키를 입력하세요", type="password")
     st.markdown("---")
     st.info("💡 **의료법 제27조 준수 고지**\n본 서비스는 질환의 확정 진단을 제공하지 않으며, 공공 의료 데이터 기반의 증상 스크리닝과 적정 진료과 안내를 돕는 보조 도구입니다.")
 
-# 문진 입력 (설문조사 단점 보완: 맞춤형 상태 반영)
+# 문진 입력
 st.subheader("1. 기본 증상 및 환자 정보 입력")
 col1, col2 = st.columns(2)
 with col1:
@@ -32,10 +38,10 @@ symptom_text = st.text_area(
 
 underlying_disease = st.text_input("기저질환 및 복용 중인 약물", placeholder="예: 고혈압 약 복용 중, 알레르기 비염")
 
-# AI 상담 시작 버튼
+# 상담 시작 버튼
 if st.button("AI 상담 및 분석 시작", type="primary"):
     if not api_key:
-        st.error("좌측 사이드바에 Gemini API 키를 먼저 입력해 주세요.")
+        st.error("API 키가 설정되지 않았습니다. 관리자에게 문의하세요.")
     elif not symptom_text:
         st.warning("증상을 입력해 주세요.")
     else:
