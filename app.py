@@ -233,7 +233,7 @@ if st.button(t["btn_run"], type="primary"):
         with st.spinner(f"Analyzing in {t['name']}..."):
             try:
                 model = genai.GenerativeModel(
-                    model_name="gemini-2.5-flash",
+                    model_name="gemini-3.6-flash",
                     system_instruction=system_instruction
                 )
                 
