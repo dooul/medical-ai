@@ -175,7 +175,7 @@ if audio_rec is not None and gemini_api_key:
         with st.spinner("Processing speech..."):
             try:
                 genai.configure(api_key=gemini_api_key)
-                stt_model = genai.GenerativeModel("gemini-2.5-flash")
+                stt_model = genai.GenerativeModel("gemini-3.6-flash")
                 audio_part = {"mime_type": "audio/wav", "data": audio_rec["bytes"]}
                 prompt = f"Accurately transcribe the spoken words in {t['name']}. Output ONLY the transcribed text without quotes or explanations."
                 response = stt_model.generate_content([audio_part, prompt])
