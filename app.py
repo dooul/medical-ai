@@ -7,8 +7,7 @@ import tempfile
 # 1. 페이지 기본 설정
 st.set_page_config(page_title="AI 건강상담 및 진료 연계 보조 도구", layout="centered")
 
-# 2. API 키 자동 로드 (팀원 공용)
-# Streamlit Cloud의 Secrets에 등록된 GEMINI_API_KEY를 자동으로 가져옵니다.
+# 2. API 키 자동 로드 (Secrets 연동)
 if "GEMINI_API_KEY" in st.secrets:
     gemini_api_key = st.secrets["GEMINI_API_KEY"]
 else:
@@ -45,29 +44,15 @@ LANGUAGES = {
     "العربية (아랍어)": {"code": "ar", "prompt": "Arabic"}
 }
 
-# 5. 사이드바: 언어 설정 및 상태 표시 (수동 입력창 제거)
+# 5. 사이드바: 언어 선택만 깔끔하게 유지
 with st.sidebar:
-    st.header("⚙️ 환경 및 언어 설정")
+    st.header("⚙️ 환경 설정")
     
-    # 공용 키 연결 상태 알림
-    if gemini_api_key:
-        st.success("🟢 팀 공용 AI 시스템 연결됨")
-    else:
-        st.error("🔴 Streamlit Secrets에 GEMINI_API_KEY를 등록해 주세요.")
-        
     selected_lang_name = st.selectbox(
         "🌐 상담 언어 선택 (Language)",
         list(LANGUAGES.keys())
     )
     lang_info = LANGUAGES[selected_lang_name]
-    
-    st.markdown("---")
-    st.markdown("""
-    **💡 서비스 주요 기능**
-    * **다국어 안내**: 16개국 언어로 맞춤 설명
-    * **음성 지원**: 마이크 음성 입력(STT) 및 읽어주기(TTS)
-    * **임상 연계**: 국내 의료진 제출용 한국어 사전 문진표(SOAP) 자동 생성
-    """)
 
 # 음성 변환 텍스트 보관용
 if "symptom_text_val" not in st.session_state:
@@ -123,13 +108,12 @@ chronic_meds = st.text_input("기저질환 및 복용 중인 약", placeholder="
 # 8. 상담 실행 버튼
 if st.button("🚀 AI 1차 스크리닝 시작", type="primary"):
     if not gemini_api_key:
-        st.error("API 키 설정이 누락되었습니다. Streamlit 관리자 페이지의 Secrets를 확인해 주세요.")
+        st.error("API 키 설정이 누락되었습니다. Streamlit Secrets 설정을 확인해 주세요.")
     elif not symptom_input:
         st.warning("증상을 음성 또는 텍스트로 입력해 주세요.")
     else:
         genai.configure(api_key=gemini_api_key)
         
-        # 프롬프트: 보조 도구로서의 경계 준수 및 다국어-한국어 이원화
         system_instruction = f"""
         당신은 의료 접근성 격차를 해소하기 위해 취약계층을 돕는 '공공 1차 건강상담 및 스크리닝 보조 AI'입니다.
         
@@ -203,4 +187,3 @@ if st.button("🚀 AI 1차 스크리닝 시작", type="primary"):
                     
             except Exception as e:
                 st.error(f"결과 생성 실패: {e}")
-                
