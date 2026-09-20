@@ -7,7 +7,7 @@ import json
 import re
 
 # 1. 페이지 설정
-st.set_page_config(page_title="배리어프리 AI 건강상담 시스템", layout="centered")
+st.set_page_config(page_title="AI 건강상담 및 1차 스크리닝 보조 도구", layout="centered")
 
 # 2. Secrets API 키 자동 로드
 if "GEMINI_API_KEY" in st.secrets:
@@ -15,180 +15,222 @@ if "GEMINI_API_KEY" in st.secrets:
 else:
     gemini_api_key = ""
 
-# 3. 메인 타이틀 및 보조 도구 고지문
-st.title("🩺 포용적 의료 접근성을 위한 배리어프리 AI 건강상담")
-st.caption("음성 대화 기반 자동 문진 및 16개 다국어 음성 안내 시스템")
-
-st.warning("""
-⚠️ **이용 전 필독 (의료법 제27조 준수 및 보조 도구 역할 명시)**  
-본 서비스는 **질환의 최종 진단이나 처방을 내리지 않는 '1차 스크리닝 및 진료 연계 보조 도구'**입니다.  
-입력된 음성 및 증상을 바탕으로 **의심 질환 가능성, 대처법, 추천 진료과**를 안내하며, 실제 진료는 반드시 전문 의료진을 통해 진행되어야 합니다.
-""")
-
-# 4. 16개 다국어 및 gTTS 공식 언어 코드 매핑
-LANGUAGES = {
-    "한국어 (Korean)": {"code": "ko", "name": "Korean"},
-    "English (영어)": {"code": "en", "name": "English"},
-    "Tiếng Việt (베트남어)": {"code": "vi", "name": "Vietnamese"},
-    "中文 (중국어)": {"code": "zh-CN", "name": "Simplified Chinese"},
-    "Русский (러시아어)": {"code": "ru", "name": "Russian"},
-    "O'zbekcha (우즈베크어)": {"code": "uz", "name": "Uzbek"},
-    "Tagalog / Filipino (필리핀어)": {"code": "tl", "name": "Tagalog"},
-    "日本語 (일본어)": {"code": "ja", "name": "Japanese"},
-    "ไทย (태국어)": {"code": "th", "name": "Thai"},
-    "ភាសាខ្មែរ (캄보디아어)": {"code": "km", "name": "Khmer"},
-    "Монгол хэл (몽골어)": {"code": "mn", "name": "Mongolian"},
-    "नेपाली (네팔어)": {"code": "ne", "name": "Nepali"},
-    "Bahasa Indonesia (인도네시아어)": {"code": "id", "name": "Indonesian"},
-    "Español (스페인어)": {"code": "es", "name": "Spanish"},
-    "Français (프랑스어)": {"code": "fr", "name": "French"},
-    "العربية (아랍어)": {"code": "ar", "name": "Arabic"}
+# 3. 16개 다국어 UI 사전 및 gTTS 매핑
+LANG_PACK = {
+    "한국어 (Korean)": {
+        "code": "ko", "name": "Korean",
+        "title": "🩺 AI 건강상담 및 1차 스크리닝 보조 도구",
+        "caption": "의료 접근성 격차 해소를 위한 다국어·음성 지원 문진 및 적정 진료과 안내 시스템",
+        "warning": "⚠️ **이용 전 필독 (보조 도구 역할 명시)**\n본 서비스는 확정 진단을 내리지 않는 1차 스크리닝 보조 도구입니다. 실제 진료는 반드시 전문 의료진을 통해 진행되어야 합니다.",
+        "sec1": "1. 기본 문진 정보", "sec2": "2. 증상 호소 (음성 또는 텍스트)", "sec3": "3. 1차 스크리닝 결과 안내",
+        "voice_guide": "🎙️ 아래 마이크 버튼을 누르고 편하게 말씀해 주세요.",
+        "start_rec": "🔴 마이크 켜기 (녹음 시작)", "stop_rec": "⏹️ 녹음 완료",
+        "age_label": "연령대", "gender_label": "성별", "gender_opt": ["여성", "남성"],
+        "pain_label": "통증/불편도 (NRS: 0 무통 ~ 10 극심한 통증)", "onset_label": "증상 발현 시점",
+        "symptom_label": "증상 상세 설명", "meds_label": "기저질환 및 복용 약물",
+        "btn_run": "🚀 AI 1차 스크리닝 시작", "tts_header": "🔊 음성으로 결과 듣기",
+        "dl_btn": "📲 의료진 전달용 한국어 문진표(SOAP) 다운로드"
+    },
+    "English (영어)": {
+        "code": "en", "name": "English",
+        "title": "🩺 AI Health Consultation & Primary Screening Tool",
+        "caption": "Multilingual & Voice-supported Pre-screening System for Reducing Medical Accessibility Gaps",
+        "warning": "⚠️ **Notice (Auxiliary Tool Only)**\nThis service is a primary pre-screening auxiliary tool and does not provide a definitive diagnosis. Always consult a qualified medical professional.",
+        "sec1": "1. Basic Patient Information", "sec2": "2. Symptoms (Voice or Text)", "sec3": "3. Screening Assessment Results",
+        "voice_guide": "🎙️ Press the microphone button below and speak in your preferred language.",
+        "start_rec": "🔴 Start Recording", "stop_rec": "⏹️ Stop Recording",
+        "age_label": "Age Group", "gender_label": "Gender", "gender_opt": ["Female", "Male"],
+        "pain_label": "Pain Scale (NRS: 0 No pain ~ 10 Severe pain)", "onset_label": "Symptom Onset Time",
+        "symptom_label": "Detailed Symptoms", "meds_label": "Underlying Conditions & Medications",
+        "btn_run": "🚀 Start AI Pre-screening", "tts_header": "🔊 Listen to Results (Audio)",
+        "dl_btn": "📲 Download Korean SOAP Note for Local Doctors"
+    },
+    "Tiếng Việt (베트남어)": {
+        "code": "vi", "name": "Vietnamese",
+        "title": "🩺 Công cụ Hỗ trợ Tư vấn Sức khỏe & Sàng lọc Ban đầu AI",
+        "caption": "Hệ thống hỗ trợ giọng nói & đa ngôn ngữ giúp thu hẹp khoảng cách tiếp cận y tế",
+        "warning": "⚠️ **Lưu ý quan trọng**\nDịch vụ này chỉ là công cụ hỗ trợ sàng lọc ban đầu và không thay thế chẩn đoán y tế chính thức. Hãy luôn thăm khám bác sĩ chuyên khoa.",
+        "sec1": "1. Thông tin bệnh nhân cơ bản", "sec2": "2. Triệu chứng (Giọng nói hoặc Văn bản)", "sec3": "3. Kết quả sàng lọc ban đầu",
+        "voice_guide": "🎙️ Nhấn nút micro bên dưới và nói bằng tiếng mẹ đẻ của bạn.",
+        "start_rec": "🔴 Bắt đầu ghi âm", "stop_rec": "⏹️ Hoàn tất",
+        "age_label": "Độ tuổi", "gender_label": "Giới tính", "gender_opt": ["Nữ", "Nam"],
+        "pain_label": "Mức độ đau (NRS: 0 Không đau ~ 10 Rất đau)", "onset_label": "Thời điểm bắt đầu triệu chứng",
+        "symptom_label": "Mô tả chi tiết triệu chứng", "meds_label": "Bệnh lý nền & Thuốc đang dùng",
+        "btn_run": "🚀 Bắt đầu sàng lọc AI", "tts_header": "🔊 Nghe kết quả bằng giọng nói",
+        "dl_btn": "📲 Tải phiếu khám tiếng Hàn (SOAP) nộp cho bác sĩ"
+    },
+    "中文 (중국어 간체)": {
+        "code": "zh-CN", "name": "Simplified Chinese",
+        "title": "🩺 AI健康咨询与初筛辅助工具",
+        "caption": "支持多语言与语音的预问诊系统，致力于缩小医疗可及性差距",
+        "warning": "⚠️ **使用须知（辅助工具声明）**\n本服务为初筛辅助工具，不提供最终诊断。如需确诊与治疗，请务必前往正规医疗机构就诊。",
+        "sec1": "1. 基本问诊信息", "sec2": "2. 症状描述（语音或文字）", "sec3": "3. 初步评估结果",
+        "voice_guide": "🎙️ 请点击下方麦克风按钮并直接用母语陈述症状。",
+        "start_rec": "🔴 开启麦克风（开始录音）", "stop_rec": "⏹️ 录音完成",
+        "age_label": "年龄段", "gender_label": "性别", "gender_opt": ["女性", "男性"],
+        "pain_label": "疼痛等级（NRS: 0无痛 ~ 10极度剧痛）", "onset_label": "发病时间",
+        "symptom_label": "症状详细描述", "meds_label": "既往病史及目前服药",
+        "btn_run": "🚀 开始AI初步评估", "tts_header": "🔊 语音朗读评估结果",
+        "dl_btn": "📲 下载供韩国医生参阅的韩语SOAP问诊单"
+    },
+    "Русский (러시아어)": {
+        "code": "ru", "name": "Russian",
+        "title": "🩺 AI-инструмент предварительного скрининга здоровья",
+        "caption": "Многоязычная система поддержки для устранения барьеров в доступности медицины",
+        "warning": "⚠️ **Важное уведомление**\nДанная система является вспомогательным инструментом и не ставит окончательный диагноз. Обратитесь к врачу.",
+        "sec1": "1. Основные данные пациента", "sec2": "2. Симптомы (Голос или текст)", "sec3": "3. Результаты предварительной оценки",
+        "voice_guide": "🎙️ Нажмите кнопку микрофона ниже и опишите симптомы голосом.",
+        "start_rec": "🔴 Начать запись", "stop_rec": "⏹️ Завершить",
+        "age_label": "Возраст", "gender_label": "Пол", "gender_opt": ["Женский", "Мужской"],
+        "pain_label": "Шкала боли (0 - нет боли ~ 10 - нестерпимая боль)", "onset_label": "Когда начались симптомы",
+        "symptom_label": "Подробное описание симптомов", "meds_label": "Хронические заболевания и лекарства",
+        "btn_run": "🚀 Начать первичный скрининг AI", "tts_header": "🔊 Прослушать результат голосом",
+        "dl_btn": "📲 Скачать корейскую форму SOAP для врача"
+    },
+    "O'zbekcha (우즈베크어)": {
+        "code": "uz", "name": "Uzbek",
+        "title": "🩺 AI Sog'liqni Saqlash va Dastlabki Skrining Yordamchisi",
+        "caption": "Tibbiy yordamdan foydalanish imkoniyatini oshirish uchun ko'p tilli tizim",
+        "warning": "⚠️ **Muhim eslatma**\nBu xizmat yordamchi vosita bo'lib, yakuniy tashxis qo'ymaydi. Shifokor bilan maslahatlashing.",
+        "sec1": "1. Asosiy ma'lumotlar", "sec2": "2. Belgilar (Ovoz yoki Matn)", "sec3": "3. Skrining xulosasi",
+        "voice_guide": "🎙️ Mikrofon tugmasini bosing va o'z tilingizda gapiring.",
+        "start_rec": "🔴 Ovoz yozish", "stop_rec": "⏹️ Tugatish",
+        "age_label": "Yosh guruhi", "gender_label": "Jinsi", "gender_opt": ["Ayol", "Erkak"],
+        "pain_label": "Og'riq darajasi (0 dan 10 gacha)", "onset_label": "Qachon boshlangan",
+        "symptom_label": "Belgilar tavsifi", "meds_label": "Surunkali kasalliklar va dorilar",
+        "btn_run": "🚀 Skriningni boshlash", "tts_header": "🔊 Ovozli eshitish",
+        "dl_btn": "📲 Shifokor uchun koreyscha SOAP varaqasini yuklab olish"
+    },
+    "Tagalog (필리핀어)": {
+        "code": "tl", "name": "Tagalog",
+        "title": "🩺 AI Konsultasyon sa Kalusugan at Pangunahing Screening",
+        "caption": "Multilingual na sistema para mapabuti ang serbisyong medikal",
+        "warning": "⚠️ **Mahalagang Paunawa**\nIto ay gabay lamang at hindi pinal na diagnosis. Kumonsulta sa doktor.",
+        "sec1": "1. Impormasyon ng Pasyente", "sec2": "2. Mga Sintomas (Boses o Teksto)", "sec3": "3. Resulta ng Screening",
+        "voice_guide": "🎙️ Pindutin ang mikropono at sabihin ang nararamdaman.",
+        "start_rec": "🔴 Simulan ang Voice", "stop_rec": "⏹️ Tapusin",
+        "age_label": "Edad", "gender_label": "Kasarian", "gender_opt": ["Babae", "Lalaki"],
+        "pain_label": "Antas ng Sakit (0 hanggang 10)", "onset_label": "Kailan nagsimula",
+        "symptom_label": "Detalye ng Sintomas", "meds_label": "Karamdaman at Iniinom na Gamot",
+        "btn_run": "🚀 Simulan ang AI Screening", "tts_header": "🔊 Pakinggan ang Boses",
+        "dl_btn": "📲 I-download ang Korean SOAP Note para sa doktor"
+    },
+    "日本語 (일본어)": {
+        "code": "ja", "name": "Japanese",
+        "title": "🩺 AI健康相談および一次スクリーニング補助ツール",
+        "caption": "医療アクセス格差解消のための多言語・音声支援問診システム",
+        "warning": "⚠️ **利用規約（補助ツールとしての明記）**\n本サービスは確定診断を下すものではありません。必ず医療機関を受診してください。",
+        "sec1": "1. 基本問診情報", "sec2": "2. 症状の訴え（音声またはテキスト）", "sec3": "3. スクリーニング結果案内",
+        "voice_guide": "🎙️ マイクボタンを押して、症状をお話しください。",
+        "start_rec": "🔴 録音開始", "stop_rec": "⏹️ 完了",
+        "age_label": "年代", "gender_label": "性別", "gender_opt": ["女性", "男性"],
+        "pain_label": "痛みの強さ (NRS: 0 痛まない ~ 10 激痛)", "onset_label": "症状の発現時期",
+        "symptom_label": "症状の詳細", "meds_label": "基礎疾患および服用薬",
+        "btn_run": "🚀 AI一次スクリーニング開始", "tts_header": "🔊 音声で結果を聞く",
+        "dl_btn": "📲 医師提示用韓国語問診票(SOAP)のダウンロード"
+    }
 }
 
-# 5. 사이드바: 상담 언어 선택
+# 4. 사이드바 (언어 선택)
 with st.sidebar:
-    st.header("⚙️ 환경 설정")
+    st.header("⚙️ Language / 언어")
     selected_lang_name = st.selectbox(
-        "🌐 상담 언어 선택 (Select Language)",
-        list(LANGUAGES.keys())
+        "Select Language",
+        list(LANG_PACK.keys())
     )
-    lang_info = LANGUAGES[selected_lang_name]
+    t = LANG_PACK[selected_lang_name]
 
-# 세션 상태 초기화
-if "patient_data" not in st.session_state:
-    st.session_state.patient_data = {
-        "age_group": "20대",
-        "gender": "여성",
-        "pain_scale": 3,
-        "onset_time": "",
-        "chronic_meds": "",
-        "symptom_text": ""
-    }
+# 5. 메인 헤더 및 고지문 (선택된 언어로 즉각 변경)
+st.title(t["title"])
+st.caption(t["caption"])
+st.warning(t["warning"])
 
-# 6. 음성으로 환자 정보 일괄 자동 입력
-st.subheader("1. 음성으로 말하기 (스마트 음성 인식)")
-st.write("🎙️ **아래 마이크를 누르고 본인의 나이, 성별, 아픈 부위와 증상을 편하게 모국어로 말씀해 주세요.**")
+# 세션 상태
+if "symptom_text_val" not in st.session_state:
+    st.session_state.symptom_text_val = ""
 
-audio_rec = mic_recorder(
-    start_prompt="🔴 마이크 켜기 (음성 녹음 시작)",
-    stop_prompt="⏹️ 말하기 완료 (녹음 중지)",
-    key="smart_voice_recorder"
-)
-
-# 음성이 입력되면 Gemini가 오디오를 듣고 5대 핵심 정보 JSON 자동 추출
-if audio_rec is not None and gemini_api_key:
-    if "bytes" in audio_rec and len(audio_rec["bytes"]) > 0:
-        with st.spinner("Gemini가 음성을 분석하여 환자 정보를 추출하고 있습니다..."):
-            try:
-                genai.configure(api_key=gemini_api_key)
-                extractor_model = genai.GenerativeModel("gemini-2.5-flash")
-                
-                audio_part = {
-                    "mime_type": "audio/wav",
-                    "data": audio_rec["bytes"]
-                }
-                
-                extract_prompt = f"""
-                Listen carefully to this patient speaking in {lang_info['name']}.
-                Extract the patient's information into a valid JSON object with the following fields:
-                - age_group: one of ["10대", "20대", "30대", "40대", "50대", "60대", "70대 이상"] (infer if mentioned, default "20대")
-                - gender: "여성" or "남성" (infer if mentioned, default "여성")
-                - pain_scale: integer from 0 to 10 (infer from voice intensity or numbers mentioned, default 4)
-                - onset_time: when symptoms started (in {lang_info['name']})
-                - chronic_meds: any underlying illness or medication (in {lang_info['name']})
-                - symptom_text: full transcribed speech and description of symptoms (in {lang_info['name']})
-
-                Return ONLY valid JSON without markdown formatting or code fences.
-                """
-                
-                response = extractor_model.generate_content([audio_part, extract_prompt])
-                clean_json = re.sub(r'```json|```', '', response.text).strip()
-                extracted = json.loads(clean_json)
-                
-                # 추출된 정보 세션에 업데이트
-                st.session_state.patient_data.update(extracted)
-                st.success("음성 인식 및 환자 정보 자동 입력이 완료되었습니다!")
-            except Exception as e:
-                st.info("음성에서 텍스트를 인식했습니다. 상세 항목을 확인해 주세요.")
-
-# 7. 확인 및 수정 화면 (음성으로 자동 입력된 내용 표시)
-st.subheader("2. 인식된 환자 문진 정보 (수정 가능)")
+# 6. 기본 문진 정보
+st.subheader(t["sec1"])
 col1, col2 = st.columns(2)
 with col1:
-    age_options = ["10대", "20대", "30대", "40대", "50대", "60대", "70대 이상"]
-    current_age = st.session_state.patient_data.get("age_group", "20대")
-    age_idx = age_options.index(current_age) if current_age in age_options else 1
-    selected_age = st.selectbox("연령대", age_options, index=age_idx)
-    
-    gender_options = ["여성", "남성"]
-    current_gender = st.session_state.patient_data.get("gender", "여성")
-    gender_idx = gender_options.index(current_gender) if current_gender in gender_options else 0
-    selected_gender = st.radio("성별", gender_options, index=gender_idx, horizontal=True)
-
+    age_group = st.selectbox(t["age_label"], ["10s", "20s", "30s", "40s", "50s", "60s", "70+"])
+    gender = st.radio(t["gender_label"], t["gender_opt"], horizontal=True)
 with col2:
-    selected_pain = st.slider(
-        "통증/불편도 (NRS: 0 무통 ~ 10 극심한 통증)", 0, 10,
-        int(st.session_state.patient_data.get("pain_scale", 3))
-    )
-    selected_onset = st.text_input(
-        "증상 발현 시점",
-        value=st.session_state.patient_data.get("onset_time", ""),
-        placeholder="예: 어제 밤부터"
-    )
+    pain_scale = st.slider(t["pain_label"], 0, 10, 3)
+    onset_time = st.text_input(t["onset_label"], placeholder="e.g. 2 days ago")
 
-selected_symptoms = st.text_area(
-    "증상 상세 설명 (음성 인식 결과)",
-    value=st.session_state.patient_data.get("symptom_text", ""),
-    placeholder="마이크를 켜고 말씀하시거나 직접 글자를 입력하세요.",
+# 7. 증상 입력 (음성 및 텍스트)
+st.subheader(t["sec2"])
+st.write(t["voice_guide"])
+
+audio_rec = mic_recorder(
+    start_prompt=t["start_rec"],
+    stop_prompt=t["stop_rec"],
+    key=f"rec_{t['code']}"
+)
+
+# 음성 인식 처리 (선택된 언어로 트랜스크립션 강제)
+if audio_rec is not None and gemini_api_key:
+    if "bytes" in audio_rec and len(audio_rec["bytes"]) > 0:
+        with st.spinner("Processing speech..."):
+            try:
+                genai.configure(api_key=gemini_api_key)
+                stt_model = genai.GenerativeModel("gemini-2.5-flash")
+                audio_part = {"mime_type": "audio/wav", "data": audio_rec["bytes"]}
+                prompt = f"Accurately transcribe the spoken words in {t['name']}. Output ONLY the transcribed text without quotes or explanations."
+                response = stt_model.generate_content([audio_part, prompt])
+                if response.text:
+                    st.session_state.symptom_text_val = response.text.strip()
+                    st.success(f"Recognized: \"{st.session_state.symptom_text_val}\"")
+            except Exception as e:
+                st.warning(f"Voice Recognition Error: {e}")
+
+symptom_input = st.text_area(
+    t["symptom_label"],
+    value=st.session_state.symptom_text_val,
     height=90
 )
+chronic_meds = st.text_input(t["meds_label"])
 
-selected_meds = st.text_input(
-    "기저질환 및 복용 중인 약물",
-    value=st.session_state.patient_data.get("chronic_meds", ""),
-    placeholder="예: 혈압약 복용 중"
-)
-
-# 8. AI 건강상담 및 다국어 음성(TTS) 실행
-if st.button("🚀 AI 1차 스크리닝 시작", type="primary"):
+# 8. 상담 실행
+if st.button(t["btn_run"], type="primary"):
     if not gemini_api_key:
-        st.error("API 키 설정이 누락되었습니다. Streamlit Secrets 설정을 확인해 주세요.")
-    elif not selected_symptoms:
-        st.warning("마이크로 말씀하시거나 증상을 텍스트로 입력해 주세요.")
+        st.error("API Key is missing in Streamlit Secrets.")
+    elif not symptom_input:
+        st.warning("Please provide symptoms either by speaking or typing.")
     else:
         genai.configure(api_key=gemini_api_key)
-        target_lang = lang_info["name"]
         
+        # 시스템 프롬프트: 사용자가 선택한 언어로 본문 출력을 100% 강제
         system_instruction = f"""
-        You are a supportive public healthcare pre-screening AI assistant designed to reduce medical accessibility gaps.
+        You are a public healthcare pre-screening AI assistant.
         
-        CRITICAL RULES:
-        1. [LANGUAGE MANDATE]: The entire consultation, clinical guidance, and emergency triage MUST be written strictly in {target_lang}.
-        2. [EXCEPTION]: At the very end of your response, provide the 'Medical Transfer Note (SOAP Note)' in KOREAN so that local Korean doctors can review it.
-        3. [NO DEFINITIVE DIAGNOSIS]: Never declare a confirmed diagnosis. Always suggest possible suspected conditions.
-        4. [EMERGENCY TRIAGE]: If life-threatening red flags exist (severe chest pain, shortness of breath, facial droop), output a clear emergency warning at the top.
-        5. [APPROPRIATE CLINIC]: Recommend the most appropriate primary/secondary clinical department to visit in Korea (e.g., Internal Medicine, ENT, Orthopedics).
-        6. [PUBLIC GUIDELINES]: Cite credible public healthcare guidelines such as KDCA (Korea Disease Control and Prevention Agency) or HIRA.
+        CRITICAL MULTILINGUAL MANDATE:
+        - The user has selected the language: **{t['name']}**.
+        - You MUST write the ENTIRE medical consultation, explanations, red flag warnings, triage, and recommendations strictly in **{t['name']}**.
+        - DO NOT write in Korean for the main consultation sections.
+        - EXCEPTION: At the very end, provide a section titled "### 🏥 의료진 전달용 사전 문진표 (SOAP Note for Local Korean Doctors)" written in KOREAN so local healthcare providers in Korea can read it immediately.
+        
+        CLINICAL PROTOCOL:
+        1. Never provide a final diagnosis. Only suggest possible conditions.
+        2. Triage urgency (Emergency vs Routine outpatient clinic).
+        3. Recommend clinical specialties to visit in Korea (e.g., Internal Medicine, ENT).
+        4. Reference credible guidelines like KDCA or HIRA.
         """
         
         user_prompt = f"""
-        Patient Profile:
-        - Target Consultation Language: {target_lang}
-        - Age / Gender: {selected_age} / {selected_gender}
-        - Pain Scale: {selected_pain} / 10
-        - Onset Time: {selected_onset}
-        - Underlying Illness / Meds: {selected_meds}
-        - Reported Symptoms: {selected_symptoms}
+        Respond completely in {t['name']}.
         
-        Structure your response clearly:
-        1. [Triage / Urgency Level]
-        2. [Possible Suspected Conditions]
-        3. [Recommended Clinic / Department to visit in Korea]
-        4. [First-aid & Home Care Advice]
-        5. [의료진 전달용 사전 문진표 (SOAP Note in Korean)]
+        Patient Profile:
+        - Language: {t['name']}
+        - Age / Gender: {age_group} / {gender}
+        - Pain Level: {pain_scale} / 10
+        - Onset: {onset_time}
+        - Underlying Illness / Meds: {chronic_meds}
+        - Symptoms: {symptom_input}
         """
         
-        with st.spinner(f"{target_lang} 언어로 증상을 분석하고 가이드라인을 생성 중입니다..."):
+        with st.spinner(f"Analyzing in {t['name']}..."):
             try:
                 model = genai.GenerativeModel(
                     model_name="gemini-2.5-flash",
@@ -197,46 +239,38 @@ if st.button("🚀 AI 1차 스크리닝 시작", type="primary"):
                 
                 response = model.generate_content(
                     user_prompt,
-                    generation_config=genai.types.GenerationConfig(temperature=0.2)
+                    generation_config=genai.types.GenerationConfig(temperature=0.1)
                 )
                 
                 result_text = response.text
-                st.success("스크리닝이 완료되었습니다.")
+                st.success("Analysis Complete.")
                 st.markdown("---")
                 
-                # 상담 결과 출력
-                st.subheader(f"3. 스크리닝 결과 안내 ({selected_lang_name})")
+                # 결과 출력
+                st.subheader(t["sec3"])
                 st.markdown(result_text)
                 
-                # 모든 언어 음성 읽어주기 (TTS)
+                # TTS 음성 재생 (해당 언어 음성 출력)
                 st.markdown("---")
-                st.subheader(f"🔊 모국어 음성으로 결과 듣기 ({selected_lang_name})")
+                st.subheader(t["tts_header"])
+                try:
+                    spoken_part = result_text.split("의료진 전달용")[0].split("SOAP Note")[0]
+                    clean_text = re.sub(r'[#*_\-`]', '', spoken_part).strip()[:350]
+                    tts = gTTS(text=clean_text, lang=t["code"])
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+                        tts.save(fp.name)
+                        st.audio(fp.name, format="audio/mp3")
+                except Exception:
+                    st.info("Audio narration is being initialized.")
                 
-                with st.spinner("선택하신 언어로 음성 안내를 생성 중입니다..."):
-                    try:
-                        # 한국어 SOAP 요약표 직전의 환자 모국어 안내문만 발화 대상 추출
-                        spoken_part = result_text.split("의료진 전달용")[0].split("SOAP Note")[0]
-                        clean_text = re.sub(r'[#*_\-`]', '', spoken_part).strip()[:350]
-                        
-                        tts = gTTS(text=clean_text, lang=lang_info["code"])
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
-                            tts.save(fp.name)
-                            st.audio(fp.name, format="audio/mp3")
-                    except Exception as tts_err:
-                        st.info("해당 언어 음성 출력 엔진(TTS) 로딩 중입니다. 잠시 후 다시 시도해 주세요.")
-                
-                # 병원 연계 버튼
+                # 다운로드 버튼
                 st.markdown("---")
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    st.button("📍 내 주변 진료기관 안내 (공공 API 연동)")
-                with col_btn2:
-                    st.download_button(
-                        label="📲 의료진 전달용 문진표(SOAP) 다운로드",
-                        data=result_text,
-                        file_name="pre_examination_note.txt",
-                        mime="text/plain"
-                    )
-                    
+                st.download_button(
+                    label=t["dl_btn"],
+                    data=result_text,
+                    file_name="medical_soap_note.txt",
+                    mime="text/plain"
+                )
+                
             except Exception as e:
-                st.error(f"결과 생성 실패: {e}")
+                st.error(f"Error: {e}")
